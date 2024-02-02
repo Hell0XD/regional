@@ -53,7 +53,8 @@ class App {
             if ($null -eq $handler_map) {
                 $res.Status(404);
                 $res.Send("not found");
-            } else {
+            }
+            else {
                 $handler = $handler_map["Handler"];
                 &$handler -req $req -res $res
             }
@@ -88,9 +89,15 @@ class Request {
 
 class Response {
     hidden [System.Net.HttpListenerResponse] $response
+    [App] $app
+    [Boolean] $headersSent
+    $locals
 
-    Response([System.Net.HttpListenerResponse] $response) {
+    Response([System.Net.HttpListenerResponse] $response, [App] $app) {
         $this.response = $response;
+        $this.app = $app;
+        $this.headersSent = $false;
+        $this.locals = @{}
     }
 
     [void] Status([UInt16] $status) {
@@ -102,6 +109,7 @@ class Response {
     }
 
     [void] Send([String] $msg) {
+        $this.headersSent = $true;
         $responseBytes = [System.Text.Encoding]::UTF8.GetBytes($msg);
         $this.response.OutputStream.Write($responseBytes, 0, $responseBytes.Length);
     }
