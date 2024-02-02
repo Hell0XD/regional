@@ -45,8 +45,8 @@ class App {
         while ($true) {
             $context = $httpListener.GetContext();
     
-            $res = [Response]::new($context.Response);
-            $req = [Request]::new($context.Request);
+            $res = [Response]::new($context.Response, $this);
+            $req = [Request]::new($context.Request, $this);
 
             $handler_map = $this.handlers | Where-Object { $_.Path -eq $req.path } | Where-Object { $_.Method -eq "*" -or $_.Method -eq $req.method };
     
@@ -72,14 +72,26 @@ class Request {
     [String] $method;
     [String] $path;
     [String] $hostname;
+    [App] $app
+    [String] $protocol;
+    [Boolean] $secure;
 
+    $query;
+    $cookies;
     $body;
 
-    Request([System.Net.HttpListenerRequest] $request) {
+    Request([System.Net.HttpListenerRequest] $request, [App] $app) {
         $this.request = $request;
         $this.method = $request.HttpMethod;
         $this.path = $request.Url.AbsolutePath;
         $this.hostname = $request.Url.Host;
+        $this.app = $app;
+
+        $this.cookies = $request.Cookies;
+        $this.protocol = $request.Url.Scheme;
+        $this.secure = $request.IsSecureConnection;
+
+        $this.query = $request.Url.Query; # TODO parse as hashtable
 
         $requestBodyReader = New-Object System.IO.StreamReader $request.InputStream;
         $this.body = $requestBodyReader.ReadToEnd();
