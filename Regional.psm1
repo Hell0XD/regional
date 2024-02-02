@@ -21,7 +21,7 @@ class App {
         $this.AddRoute($path, "*", $handler);
     }
 
-    [Void] AddRoute([String] $path, [String] $method, [scriptblock] $handler) {
+    hidden [Void] AddRoute([String] $path, [String] $method, [scriptblock] $handler) {
         $this.handlers += @{
             Handler = $handler
             Method  = $method
@@ -45,35 +45,71 @@ class App {
         while ($true) {
             $context = $httpListener.GetContext();
     
-            $method = $context.Request.HttpMethod;
-            $url = $context.Request.Url;
-            $requestBodyReader = New-Object System.IO.StreamReader $context.Request.InputStream;
-            $body = $requestBodyReader.ReadToEnd();
-    
-            $handler_map = ($this.handlers | Where-Object { $_.Path -eq $url.AbsolutePath } | Where-Object { $_.Method -eq "*" -or $_.Method -eq $method } );
+            $res = [Response]::new($context.Response);
+            $req = [Request]::new($context.Request);
+
+            $handler_map = $this.handlers | Where-Object { $_.Path -eq $req.path } | Where-Object { $_.Method -eq "*" -or $_.Method -eq $req.method };
     
             if ($null -eq $handler_map) {
-                $context.Response.StatusCode = 404;
-                $responseBytes = [System.Text.Encoding]::UTF8.GetBytes("not found");
-                $context.Response.OutputStream.Write($responseBytes, 0, $responseBytes.Length);
-            }
-            else {
+                $res.Status(404);
+                $res.Send("not found");
+            } else {
                 $handler = $handler_map["Handler"];
-                $response = &$handler -headers $context.Request.Headers -body $body -setStatus {
-                    Param([byte] $status)
-                    $context.Response.StatusCode = $status;
-                } -setContentType {
-                    Param([String] $content_type)
-                    $context.Response.ContentType = $content_type;
-                };
-    
-                $responseBytes = [System.Text.Encoding]::UTF8.GetBytes($response);
-                $context.Response.OutputStream.Write($responseBytes, 0, $responseBytes.Length);
+                &$handler -req $req -res $res
             }
     
             $context.Response.Close();
         }
     
         $httpListener.Close();
+    }
+}
+
+
+class Request {
+    hidden [System.Net.HttpListenerRequest] $request
+    [String] $method;
+    [String] $path;
+    [String] $hostname;
+
+    $body;
+
+    Request([System.Net.HttpListenerRequest] $request) {
+        $this.request = $request;
+        $this.method = $request.HttpMethod;
+        $this.path = $request.Url.AbsolutePath;
+        $this.hostname = $request.Url.Host;
+
+        $requestBodyReader = New-Object System.IO.StreamReader $request.InputStream;
+        $this.body = $requestBodyReader.ReadToEnd();
+    }
+}
+
+
+class Response {
+    hidden [System.Net.HttpListenerResponse] $response
+
+    Response([System.Net.HttpListenerResponse] $response) {
+        $this.response = $response;
+    }
+
+    [void] Status([UInt16] $status) {
+        $this.response.StatusCode = $status;
+    }
+
+    [void] Type([String] $type) {
+        $this.response.ContentType = $type;
+    }
+
+    [void] Send([String] $msg) {
+        $responseBytes = [System.Text.Encoding]::UTF8.GetBytes($msg);
+        $this.response.OutputStream.Write($responseBytes, 0, $responseBytes.Length);
+    }
+
+    [void] Json([Object] $json) {
+        $msg = $json | ConvertTo-Json;
+
+        $this.Type("application/json");
+        $this.Send($msg);
     }
 }
