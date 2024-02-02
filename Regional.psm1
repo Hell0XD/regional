@@ -105,7 +105,46 @@ class Response {
     }
 
     [void] Type([String] $type) {
-        $this.response.ContentType = $type;
+        $this.Set("Content-Type", $type);
+    }
+
+    [void] Location([String] $location) {
+        $this.Set("Location", $location);
+    }
+
+    [void] Set($headers) {
+        foreach ($key in $headers.Keys) {
+            $value = $headers[$key];
+            $this.Set($key, $value);
+        }
+    }
+
+    [void] Set([String] $name, [String] $value) {
+        $this.response.Headers[$name] = $value;
+    }
+
+    [String] Get([String] $name) {
+        return $this.response.Headers[$name];
+    }
+
+    [void] Append([String] $name, [String[]] $vals) {
+        if ($null -eq $this.response.Headers[$name]) {
+            $this.response.Headers[$name] = "";
+        }
+        else {
+            $this.response.Headers[$name] = ", ";
+        }
+        $this.response.Headers[$name] += $vals -join ", ";
+    }
+
+    [void] Cookie([String] $name, [String] $value) {
+        $cookie = [System.Net.Cookie]::new($name, $value);
+        $this.response.Cookies.Add($cookie);
+    }
+
+    [void] ClearCookie([String] $name) {
+        $cookie = [System.Net.Cookie]::new($name);
+        $this.response.Cookies.Remove($cookie);
     }
 
     [void] Send([String] $msg) {
