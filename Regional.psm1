@@ -96,6 +96,10 @@ class Request {
         $requestBodyReader = New-Object System.IO.StreamReader $request.InputStream;
         $this.body = $requestBodyReader.ReadToEnd();
     }
+
+    [String] Get([String] $name) {
+        return $this.request.Headers.Get($name);
+    }
 }
 
 
@@ -136,7 +140,7 @@ class Response {
     }
 
     [String] Get([String] $name) {
-        return $this.response.Headers[$name];
+        return $this.response.Headers.Get($name);
     }
 
     [void] Append([String] $name, [String[]] $vals) {
